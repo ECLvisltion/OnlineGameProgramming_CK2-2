@@ -1,114 +1,134 @@
-// Çì´õ ÆÄÀÏ Ãß°¡
+/*
+ë„ì›€ì„ ë°›ì€ ì‚¬ì´íŠ¸
+C++ íŒŒì¼ ì „ì†¡ ë„¤íŠ¸ì›Œí¬ í”„ë¡œê·¸ë¨ - ê¸°ì ì˜ í”„ë¡œê·¸ë˜ë¨¸ : http://blog.naver.com/war2i7i7/220791180984 (ê°€ì¥ ì˜í–¥ì„ ë§ì´ ë°›ìŒ)
+
+Visual C++ ì„¤ëª…ì„œ : https://docs.microsoft.com/ko-kr/cpp/?view=vs-2019
+#pragma warning(disable:4996) - ì´ˆë¡ë§¤ì‹¤ì›ì•¡ : https://puffinknight.tistory.com/69 (ì‚¬ìš©í•˜ì§€ ì•ŠìŒ)
+[API] winsock2.h ì´ìš©ì‹œ ë¼ì´ë¸ŒëŸ¬ë¦¬ ì¶”ê°€ - ì•„ë¦°R : https://anisyw.tistory.com/13
+ë””ìŠ¤í¬ë¦½í„° (descriptor)?? by í•´ì»¤ë‚¨ - í•´ì»¤ë‚¨ : https://blog.naver.com/ifkiller/70081227708 : (*1)
+*/
+
 #include <iostream>
-#include <cstdlib>
 #include <WinSock2.h>
+#include <cstdlib>
 using namespace std;
 
-#define bufferSize 4096 // ¹öÆÛ Å©±â Á¤ÀÇ
+#define bufferSize 4096 // ë²„í¼ í¬ê¸° ì •ì˜
 
-#pragma comment(lib, "Ws2_32.lib") // ¿ø¼Ó »ç¿ëÀ» À§ÇÑ ¶óÀÌºê·¯¸® ¸µÅ·
+// ì»´íŒŒì¼ì„ í•  ë•Œ Ws2_32.lib ë¼ì´ë¸ŒëŸ¬ë¦¬ íŒŒì¼ê³¼ ë§í¬ê°€ ë˜ì–´ ìˆì–´ì•¼ í•œë‹¤.
+// Visual Studioì—ì„œ í”„ë¡œì íŠ¸ë§ˆë‹¤ ì¼ì¼ì´ ë§í¬ê±¸ì–´ì£¼ëŠ”ê²Œ ê·€ì°®ìœ¼ë‹ˆ ì•„ë˜ì²˜ëŸ¼ ì¨ì¤€ë‹¤.
+#pragma comment(lib, "Ws2_32.lib")
 
-int dataReceive(SOCKET s, char* buf, int len, int flags); // µ¥ÀÌÅÍ ¼ö½Å ÇÔ¼ö
+int DataReceive(SOCKET s, char* buf, int len, int flags);
 
 int main()
 {
-	int retval; // µ¥ÀÌÅÍ Å©±â¸¦ ´ãÀ» º¯¼ö
+	int retval; // ë°ì´í„° í¬ê¸°ë¥¼ ë‹´ì„ ë³€ìˆ˜
 
-	// ¿ø¼Ó °´Ã¼ ¼±¾ğ ¹× ÃÊ±âÈ­
+	// ì›ì† ê°ì²´ ì„ ì–¸ ë° ì´ˆê¸°í™”
 	WSADATA wsa;
 	WSAStartup(MAKEWORD(2, 2), &wsa);
 
-	SOCKET listen_sock = socket(AF_INET, SOCK_STREAM, 0); // ¿¬°á¿ë ¼ÒÄÏÀ» »ı¼º
+	SOCKET listen_sock = socket(AF_INET, SOCK_STREAM, 0); // ì—°ê²°ìš© ì†Œì¼“ì„ ìƒì„±
 
-	// ¹ÙÀÎµù Ã³¸® º¯¼ö ÃÊ±âÈ­
+	// ë°”ì¸ë”© ì²˜ë¦¬ ë³€ìˆ˜ ì´ˆê¸°í™”
 	SOCKADDR_IN servaddr;
 	ZeroMemory(&servaddr, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(9000);
 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	bind(listen_sock, (SOCKADDR*)& servaddr, sizeof(servaddr)); // ¹ÙÀÎµù
+	bind(listen_sock, (SOCKADDR*)& servaddr, sizeof(servaddr)); // ë°”ì¸ë”©
 
-	listen(listen_sock, SOMAXCONN); // ¿¬°á ÇÔ¼ö ½ÃÀÛ
+	listen(listen_sock, SOMAXCONN); // ì—°ê²° í•¨ìˆ˜ ì‹œì‘
 
-	// µ¥ÀÌÅÍ Åë½Å¿¡ »ç¿ëÇÒ º¯¼ö
+	// ë°ì´í„° í†µì‹ ì— ì‚¬ìš©í•  ë³€ìˆ˜
 	SOCKET client_sock;
 	SOCKADDR_IN clientaddr;
 	int addrlen;
 	char buf[bufferSize];
 
-	while (true) // ¹İº¹ÀûÀ¸·Î Å¬¶óÀÌ¾ğÆ®·ÎºÎÅÍ ¼ÒÄÏ ¿äÃ»À» ¹ŞÀ½
+	while (true) // ë°˜ë³µì ìœ¼ë¡œ í´ë¼ì´ì–¸íŠ¸ë¡œë¶€í„° ì†Œì¼“ ìš”ì²­ì„ ë°›ìŒ
 	{
-		// Å¬¶óÀÌ¾ğÆ® Á¢¼ÓÀ» ¹ŞÀ½
+		// í´ë¼ì´ì–¸íŠ¸ ì ‘ì†ì„ ë°›ìŒ
 		addrlen = sizeof(clientaddr);
 		client_sock = accept(listen_sock, (SOCKADDR*)& clientaddr, &addrlen);
 
-		// Á¢¼ÓÇÑ Å¬¶óÀÌ¾ğÆ® Á¤º¸ Ãâ·Â
-		cout << "Å¬¶óÀÌ¾ğÆ® Á¢¼Ó (IP : " << inet_ntoa(clientaddr.sin_addr) << ", Port : " << ntohs(clientaddr.sin_port) << ')' << endl;
+		// ì ‘ì†í•œ í´ë¼ì´ì–¸íŠ¸ ì •ë³´ ì¶œë ¥
+		cout << "í´ë¼ì´ì–¸íŠ¸ ì ‘ì† (IP : " << inet_ntoa(clientaddr.sin_addr) << ", Port : " << ntohs(clientaddr.sin_port) << ')' << endl;
 
-		// ÆÄÀÏ ÀÌ¸§ ¹Ş±â
+		// íŒŒì¼ ì´ë¦„ ë°›ê¸°
 		char filename[256];
 		ZeroMemory(filename, 256);
-		dataReceive(client_sock, filename, 256, 0);
+		DataReceive(client_sock, filename, 256, 0);
 
-		// ¹Ş´Â ÆÄÀÏ ÀÌ¸§ Ãâ·Â
-		cout << "¹ŞÀ» ÆÄÀÏ ÀÌ¸§ : " << filename << endl;
+		// ë°›ëŠ” íŒŒì¼ ì´ë¦„ ì¶œë ¥
+		cout << "ë°›ì„ íŒŒì¼ ì´ë¦„ : " << filename << endl;
 
-		// ÆÄÀÏ Å©±â ¹Ş±â
+		// íŒŒì¼ í¬ê¸° ë°›ê¸°
 		int totalbytes;
-		dataReceive(client_sock, (char*)& totalbytes, sizeof(totalbytes), 0);
+		DataReceive(client_sock, (char*)& totalbytes, sizeof(totalbytes), 0);
 
-		// ¹ŞÀ» ÆÄÀÏ Å©±â Ãâ·Â
-		cout << "¹ŞÀ» ÆÄÀÏ ÀÌ¸§ : " << filename << endl;
+		// ë°›ì„ íŒŒì¼ í¬ê¸° ì¶œë ¥
+		cout << "ë°›ì„ íŒŒì¼ ì´ë¦„ : " << filename << endl;
 
-		// ÆÄÀÏ ¿­±â
+		// íŒŒì¼ ì—´ê¸°
 		FILE* fp = fopen(filename, "wb");
 
 		int numtotal = 0;
 
-		while (true) // ÆÄÀÏ µ¥ÀÌÅÍ ¹Ş±â
+		while (true) // íŒŒì¼ ë°ì´í„° ë°›ê¸°
 		{
-			retval = dataReceive(client_sock, buf, bufferSize, 0);
+			retval = DataReceive(client_sock, buf, bufferSize, 0);
 
-			if (retval == 0) { break; } // ´õ ¹ŞÀ» µ¥ÀÌÅÍ°¡ ¾øÀ» ¶§
+			if (retval == 0) { break; } // ë” ë°›ì„ ë°ì´í„°ê°€ ì—†ì„ ë•Œ
 			else
 			{
 				fwrite(buf, 1, retval, fp);
-				numtotal += retval; // ¹ŞÀº µ¥ÀÌÅÍ Å©±â¸¸Å­ º¯¼ö¿¡ ´õÇØÁÜ
+				numtotal += retval; // ë°›ì€ ë°ì´í„° í¬ê¸°ë§Œí¼ ë³€ìˆ˜ì— ë”í•´ì¤Œ
 			}
 		}
 		fclose(fp);
 
-		// Àü¼Û °á°ú
-		if (numtotal == totalbytes) { cout << "ÆÄÀÏÀ» ¼º°øÀûÀ¸·Î ¹Ş¾Ò½À´Ï´Ù." << endl; }
-		else { cout << "ÆÄÀÏÀ» Á¦´ë·Î ¹ŞÁö ¸øÇß½À´Ï´Ù." << endl; }
+		// ì „ì†¡ ê²°ê³¼
+		if (numtotal == totalbytes) { cout << "íŒŒì¼ì„ ì„±ê³µì ìœ¼ë¡œ ë°›ì•˜ìŠµë‹ˆë‹¤." << endl; }
+		else { cout << "íŒŒì¼ì„ ì œëŒ€ë¡œ ë°›ì§€ ëª»í–ˆìŠµë‹ˆë‹¤." << endl; }
 
-		// ÇØ´ç Å¬¶óÀÌ¾ğÆ® ¼ÒÄÏÀ» Æó°¡
+		// í•´ë‹¹ í´ë¼ì´ì–¸íŠ¸ ì†Œì¼“ì„ íê°€
 		closesocket(client_sock);
-		cout << "Å¬¶óÀÌ¾ğÆ® Á¾·á (IP : " << inet_ntoa(clientaddr.sin_addr) << ", Port : " << ntohs(clientaddr.sin_port) << ')' << endl;
+		cout << "í´ë¼ì´ì–¸íŠ¸ ì¢…ë£Œ (IP : " << inet_ntoa(clientaddr.sin_addr) << ", Port : " << ntohs(clientaddr.sin_port) << ')' << endl;
 	}
-	// ¼­¹ö ¼ÒÄÏÀ» Æó±â
+	// ì„œë²„ ì†Œì¼“ì„ íê¸°
 	closesocket(listen_sock);
 
-	// ¿ø¼Ó Á¾·á
+	// ì›ì† ì¢…ë£Œ
 	WSACleanup();
 	return 0;
 }
 
-int dataReceive(SOCKET s, char* buf, int len, int flags) // µ¥ÀÌÅÍ ¼ö½Å ÇÔ¼ö
+int DataReceive(SOCKET s, char* buf, int len, int flags) // ë°ì´í„° ìˆ˜ì‹  í•¨ìˆ˜
 {
-	// Åë½Å¿¡ ÇÊ¿äÇÑ º¯¼ö ¼±¾ğ
+	// í†µì‹ ì— í•„ìš”í•œ ë³€ìˆ˜ë“¤
 	int received;
 	char* ptr = buf;
 	int left = len;
 
-	while (left > 0) //³²¾ÆÀÖ´Â µ¥ÀÌÅÍ°¡ ÀÖ´Â °æ¿ì ¹İº¹ÀûÀ¸·Î ½ÃÇà
+	while (left > 0) // ë‚¨ì•„ìˆëŠ” ë°ì´í„°ê°€ ìˆëŠ” ê²½ìš° ë°˜ë³µ ì‹œí–‰.
 	{
 		received = recv(s, ptr, left, flags);
+		/*
+		recv(SOCKET s, char *buf, int len, int flags)
+			SOCKET s : ì—°ê²°ëœ ì†Œì¼“ì„ ì‹ë³„í•˜ê¸° ìœ„í•œ ë””ìŠ¤í¬ë¦½í„°(*1)
+			char *buf : ë“¤ì–´ì˜¤ëŠ” ë°ì´í„°ë¥¼ ë°›ëŠ” ë²„í¼ì— ëŒ€í•œ í¬ì¸í„°
+			int len : ìœ„ì˜ char *bufì˜ í¬ê¸°(byte)
+			int flags : ì´ í•¨ìˆ˜ì— ì˜í–¥ì„ ì£¼ëŠ” ë³€ìˆ˜. ìì„¸í•œ ê²ƒì€ ì•„ë˜ ë§í¬ë¡œ.
+			https://docs.microsoft.com/ko-kr/windows/win32/api/winsock/nf-winsock-recv#remarks
+		*/
 
-		if (received == 0) { break; } // ´õÀÌ»ó µ¥ÀÌÅÍ¸¦ ¹Ş¾Æ¿ÀÁö ¸øÇÏ´Â °æ¿ì
-		left -= received; ptr += received; // ¹Ş¾Æ¿Â µ¥ÀÌÅÍ°¡ Á¸ÀçÇÏ´Â °æ¿ì
+		if (received == 0) { break; } // ë” ì´ìƒ ë°ì´í„°ë¥¼ ë°›ì•„ì˜¤ì§€ ëª»í•˜ëŠ” ê²½ìš°
+
+		left -= received; ptr += received; // ë°›ì•„ ì˜¨ ë°ì´í„°ê°€ ì¡´ì¬í•˜ëŠ” ê²½ìš°
 	}
-
-	return (len - left); // ´õ ¹ŞÀ» ¼ö ÀÖ´Â µ¥ÀÌÅÍ ±æÀÌ¸¦ ¹İÈ¯(µ¥ÀÌÅÍ¸¦ ÇÑ ¹øÀÌ¶óµµ ¹Ş¾ÒÀ¸¸é 0ÀÌ ¾Æ´Ñ ¼ö ¹İÈ¯)
+	// ë” ë°›ì„ ìˆ˜ ìˆëŠ” ë°ì´í„° ê¸¸ì´ë¥¼ ë°˜í™˜(ë°ì´í„°ë¥¼ í•œ ë²ˆì´ë¼ë„ ë°›ì•˜ìœ¼ë©´ 0ì´ ì•„ë‹Œ ìˆ˜ë¥¼ ë°˜í™˜í•˜ê²Œ ë¨.)
+	return (len - left);
 }
